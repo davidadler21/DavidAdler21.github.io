@@ -17,7 +17,7 @@ var sEnemies = [];
 var lastChecked = 0;
 var numEnemies = 0;
 var start = false;
-var p = false;
+var gamePaused = false;
 var BEnemy;
 var shield ={
   captured: false,
@@ -159,7 +159,7 @@ function P1 () {
   this.lastChecked = 0;
   this.lastCheckedSP = 0;
   //stats
-  this.level = 4;
+  this.level = 0;
   this.skillPoint = 0;
   this.exp = 0;
   this.maxhp = 100;
@@ -257,18 +257,11 @@ function P1 () {
   },
   this.displayBullet = function () {
     //generates first bullet and moves it
-    if (this.bullets[0].hidden === false && !keyPressed()) {
-      for (var i = 0; i<3; i++) {
-        this.bullets[0].x += cos(this.bullets[0].angle)+cos(this.bullets[0].angle)*(0.1*this.dex);
-        this.bullets[0].y += sin(this.bullets[0].angle)+sin(this.bullets[0].angle)*(0.1*this.dex);
-      }
+    if (this.bullets[0].hidden === false && !keyPressed() && this.hp>0) {
+      this.moveBullet(0);
       noStroke();
       fill (0, 200, 200);
-      ellipse(this.bullets[0].x, this.bullets[0].y, 4);
-      ellipse(this.bullets[0].x + cos(this.bullets[0].angle)*3, this.bullets[0].y + sin(this.bullets[0].angle)*3, 4);
-      ellipse(this.bullets[0].x + cos(this.bullets[0].angle)*6, this.bullets[0].y + sin(this.bullets[0].angle)*6, 4);
-      ellipse(this.bullets[0].x + cos(this.bullets[0].angle)*9, this.bullets[0].y + sin(this.bullets[0].angle)*9, 4);
-      ellipse(this.bullets[0].x + cos(this.bullets[0].angle)*12, this.bullets[0].y + sin(this.bullets[0].angle)*12, 4);
+      this.displayFireTrail(0);
       // calls another bullet if mouse is still pressed and first bullet is too far away
       if ((this.bullets[0].x - (this.x+75) > 100 || this.bullets[0].x - (this.x+75) < -100 || this.bullets[0].y - (this.y+50) > 100 || this.bullets[0].y - (this.y+50) < -100) && mouseIsPressed) {
         if (this.mp>2 && this.bullets[1].hidden === true) {
@@ -278,43 +271,51 @@ function P1 () {
       }
     }
     // generates second bullet and moves it
-    if (this.bullets[1].hidden === false && !keyPressed()) {
-      for (var i = 0; i<3; i++) {
-        this.bullets[1].x += cos(this.bullets[1].angle)+cos(this.bullets[1].angle)*(0.1*this.dex);
-        this.bullets[1].y += sin(this.bullets[1].angle)+sin(this.bullets[1].angle)*(0.1*this.dex);
-      }
+    if (this.bullets[1].hidden === false && !keyPressed() && this.hp>0) {
+      this.moveBullet(1);
       noStroke();
       fill (0, 200, 200);
-      ellipse(this.bullets[1].x, this.bullets[1].y, 4);
-      ellipse(this.bullets[1].x + cos(this.bullets[1].angle)*3, this.bullets[1].y + sin(this.bullets[1].angle)*3, 4);
-      ellipse(this.bullets[1].x + cos(this.bullets[1].angle)*6, this.bullets[1].y + sin(this.bullets[1].angle)*6, 4);
-      ellipse(this.bullets[1].x + cos(this.bullets[1].angle)*9, this.bullets[1].y + sin(this.bullets[1].angle)*9, 4);
-      ellipse(this.bullets[1].x + cos(this.bullets[1].angle)*12, this.bullets[1].y + sin(this.bullets[1].angle)*12, 4);
+      this.displayFireTrail(1);
     }
-    // limit on how far bullet can go
-    if (this.bullets[0].x - (this.x+150) > 200 || this.bullets[0].x - this.x < -200 || this.bullets[0].y - (this.y+100) > 200 || this.bullets[0].y - this.y < -200) {
-      this.bullets[0].hidden = true;
+    this.checkBulletLimit(0);
+    this.checkBulletLimit(1);
+  },
+  this.moveBullet = function(num) {
+    // moves a bullet
+    for (var i = 0; i<3; i++) {
+      this.bullets[num].x += cos(this.bullets[num].angle)+cos(this.bullets[num].angle)*(0.1*this.dex);
+      this.bullets[num].y += sin(this.bullets[num].angle)+sin(this.bullets[num].angle)*(0.1*this.dex);
     }
-    // limit on how far bullet can go
-    if (this.bullets[1].x - (this.x+150) > 200 || this.bullets[1].x - this.x < -200 || this.bullets[1].y - (this.y+100) > 200 || this.bullets[1].y - this.y < -200) {
-      this.bullets[1].hidden = true;
+  },
+  this.displayFireTrail = function(num) {
+    // shows you a physical bullet
+    for (var i = 0; i < 5; i++) {
+      ellipse(this.bullets[num].x + cos(this.bullets[num].angle)*3*i, this.bullets[num].y + sin(this.bullets[num].angle)*3*i, 4);
     }
-  }
+  },
+  this.checkBulletLimit = function(num) {
+    // stops bullet from going to far away from you
+    if (this.bullets[num].x - (this.x+150) > 200 || this.bullets[num].x - this.x < -200 || this.bullets[num].y - (this.y+100) > 200 || this.bullets[num].y - this.y < -200) {
+      this.bullets[num].hidden = true;
+    }
+  },
+  this.setTrajectory = function(num) {
+    // sets the direction of the bullet and start location
+    this.bullets[num].x = this.x+75;
+    this.bullets[num].y = this.y+50;
+    this.bullets[num].angle = atan2((mouseY-this.bullets[num].y),(mouseX-this.bullets[num].x));
+  },
   this.fire = function () {
     // sets directionality and generates bullet if you have enough mp (bullets move towards the mouse)
     if (this.bullets[1].hidden === true && this.mp>=2 && !keyPressed()) {
-      this.bullets[1].x = this.x+75;
-      this.bullets[1].y = this.y+50;
-      this.bullets[1].angle = atan2((mouseY-this.bullets[1].y),(mouseX-this.bullets[1].x));
+      this.setTrajectory(1);
     }
     if (mouseIsPressed) {
       // sets directionality and generates bullet if you have enough mp (bullets move towards the mouse)
       if (this.bullets[0].hidden === true && this.mp>=2 && !keyPressed()) {
-        this.bullets[0].x = this.x+75;
-        this.bullets[0].y = this.y+50;
+        this.setTrajectory(0);
         this.bullets[0].hidden = false;
         this.mp-=2;
-        this.bullets[0].angle = atan2((mouseY-this.bullets[0].y),(mouseX-this.bullets[0].x));
       }
     }
   },
@@ -437,6 +438,7 @@ function P1 () {
     }
   },
   this.shieldInstructions = function () {
+    // displays shield instructions if the item is obtained
     if (shield.captured) {
       image(magicShield, 1020, 300, 40, 40);
       text("         Magic Shield: \n While active lose mp instead \n of hp (press 1 to turn on and off)", 1022, 323);
@@ -444,6 +446,7 @@ function P1 () {
     }
   },
   this.superSpeedInstructions = function () {
+    // displays superSpeed instructions if the item is attained
     if (superSpeed.captured) {
       image(boots, 1020, 370, 30, 30);
       text("        Super Speed: \n hold down the space key to run \n very fast at the cost of mp", 1022, 390);
@@ -452,6 +455,7 @@ function P1 () {
     }
   },
   this.wingsInstructions = function () {
+    // displays wing instructions if the item is attained
     if (wings) {
       image(lWing, 1040, 424, 60, 40);
       image(rWing, 1000, 424, 60, 40);
@@ -473,13 +477,13 @@ function P1 () {
 
 function keyPressed () {
   //pauses the game if escape is pressed and unpauses it if '~' is pressed
-  if (keyCode === 27 && p === false) {
-    p = true;
+  if (keyCode === 27 && gamePaused === false) {
+    return true;
   }
   else if (keyCode === 192){
-    p = false;
+    gamePaused = false;
   }
-  return p;
+  return gamePaused;
 }
 
 function pause () {
@@ -515,15 +519,17 @@ function sEnemy () {
   this.y = 0;
   this.angle = 0;
   this.display = function () {
-    stroke(0);
-    this.stats();
-    this.spawning();
-    this.gEnemy();
-    this.move();
-    this.fire();
-    this.dead();
-    this.damagePlayer();
-    this.damageMe();
+    if (p1.hp>0) {
+      stroke(0);
+      this.stats();
+      this.spawning();
+      this.gEnemy();
+      this.move();
+      this.fire();
+      this.dead();
+      this.damagePlayer();
+      this.damageMe();
+    }
   },
   this.stats = function () {
     //sets enemy stats
@@ -676,17 +682,19 @@ function bEnemy () {
   this.y = 0;
   this.angle = 0;
   this.display = function () {
-    stroke(0);
-    this.stats();
-    this.spawning();
-    if (this.spawn === true) {
-      this.fire()
+    if (p1.hp>0) {
+      stroke(0);
+      this.stats();
+      this.spawning();
+      if (this.spawn === true) {
+        this.fire()
+      }
+      this.gEnemy();
+      this.move();
+      this.dead();
+      this.damagePlayer();
+      this.damageMe();
     }
-    this.gEnemy();
-    this.move();
-    this.dead();
-    this.damagePlayer();
-    this.damageMe();
   },
   this.stats = function () {
     //sets enemy stats
@@ -816,7 +824,7 @@ function bEnemy () {
       this.bullets[2].hidden = true;
     }
   },
-  this.damagePlayer = function () {
+  this.damagePlayer = function (num) {
     // damages player if any of the bullets hit him (taking magicShield into account)
     if (p1.x+56 < this.bullets[0].x && p1.x+88 > this.bullets[0].x && p1.y+31 < this.bullets[0].y && p1.y+66 > this.bullets[0].y && this.bullets[0].hidden === false) {
       if (shield.active && (p1.mp - this.attack) > 0) {
@@ -826,24 +834,6 @@ function bEnemy () {
         p1.hp-=this.attack;
       }
       this.bullets[0].hidden = true;
-    }
-    if (p1.x+56 < this.bullets[1].x && p1.x+88 > this.bullets[1].x && p1.y+31 < this.bullets[1].y && p1.y+66 > this.bullets[1].y && this.bullets[1].hidden === false) {
-      if (shield.active && (p1.mp - this.attack) > 0) {
-        p1.mp-=this.attack;
-      }
-      else {
-        p1.hp-=this.attack;
-      }
-      this.bullets[1].hidden = true;
-    }
-    if (p1.x+56 < this.bullets[2].x && p1.x+88 > this.bullets[2].x && p1.y+31 < this.bullets[2].y && p1.y+66 > this.bullets[2].y && this.bullets[2].hidden === false) {
-      if (shield.active && (p1.mp - this.attack) > 0) {
-        p1.mp-=this.attack;
-      }
-      else {
-        p1.hp-=this.attack;
-      }
-      this.bullets[2].hidden = true;
     }
   },
   this.damageMe = function () {

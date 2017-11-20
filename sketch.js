@@ -20,14 +20,15 @@ var start = false;
 var gamePaused = false;
 var BEnemy;
 var shield ={
-  captured: false,
-  active: false
-}
+  captured: true,
+  active: false,
+  lastChecked: 0
+};
 var superSpeed ={
   captured: false,
   active: false,
   lastChecked: 0
-}
+};
 var wings = false;
 
 function setup() {
@@ -107,7 +108,7 @@ function Tree () {
   this.isTouchingPlayer = function () {
     //player cannot walk through tree trunks
     if (!wings) {
-      if (p1.x+56 < this.x+19 && p1.x+88 > this.x+24 && p1.y+31 < this.y+52 && p1.y+76 > this.y+40) {
+      if (hitBox(this.x+19, p1.x+56, p1.x+88, this.x+24, this.y+52, p1.y+31,  p1.y+76, this.y+40)) {
         if (keyIsDown(65)) {
           p1.x+= 1 + checkSuperSpeedActive();
         }
@@ -128,22 +129,22 @@ function Tree () {
 function isOnFlowers(xtree, ytree) {
   //prevents trees from being generated within the vicinity of flowers or on top of the character
   //the numbers behind xtrees and ytrees are set cooridinates of where the flowers begin and end
-  if ((xtree > 120 && xtree < 120+60*3.13207547) && (ytree < 100)) {
+  if (hitBox(xtree, 120, 120+60*3.13207547, xtree, 100, ytree, ytree, 0)) {
     return true;
   }
-  else if ((xtree > 350 && xtree < 360+60*3.13207547) && (ytree > 180 && ytree < 300)) {
+  else if (hitBox(xtree, 350, 360+60*3.13207547, xtree, ytree, 180, 300, ytree)) {
     return true;
   }
-  else if ((xtree > 730 && xtree < 740+60*3.13207547) && (ytree > 80 && ytree < 200)) {
+  else if (hitBox(xtree, 730, 740+60*3.13207547, xtree, ytree, 80, 200, ytree)) {
     return true;
   }
-  else if ((xtree > 170 && xtree < 180+60*3.13207547) && (ytree > 380 && ytree < 500)) {
+  else if (hitBox(xtree, 170, 180+60*3.13207547, xtree, ytree, 380, 500, ytree)) {
     return true;
   }
-  else if ((xtree > 850 && xtree < 860+60*3.13207547) && (ytree > 480 && ytree < 600)) {
+  else if (hitBox(xtree, 850, 860+60*3.13207547, xtree, ytree, 480, 600, ytree)) {
     return true;
   }
-  else if (xtree+19 > 356 && xtree+24 < 388 && ytree+52 > 131 && ytree+40 < 176) {
+  else if (hitBox(xtree+19, 356, 388, xtree+24, ytree+52, 131, 176, ytree+40)) {
     return true;
   }
   else {
@@ -152,7 +153,7 @@ function isOnFlowers(xtree, ytree) {
 }
 
 function P1 () {
-  this.bullets = [{x:0, y:0, hidden:true, angle:0}, {x:0, y:0, hidden:true, angle:0}, {x:0, y:0, hidden:true, angle:0}]
+  this.bullets = [{x:0, y:0, hidden:true, angle:0}, {x:0, y:0, hidden:true, angle:0}]
   this.bullet2 = false;
   this.x = 300;
   this.y = 100;
@@ -337,6 +338,7 @@ function P1 () {
     }
   },
   this.manaRegen = function () {
+    // gives player mana quickly if they are not moving and q is pressed
     if (millis() - this.lastChecked > 100 && keyIsDown(81) && !keyIsDown(87) && !keyIsDown(83) && !keyIsDown(65) && !keyIsDown(68) && !keyPressed()) {
       this.lastChecked = millis();
       this.mp++;
@@ -465,12 +467,13 @@ function P1 () {
     }
   }
   this.end = function () {
+    var outCome = ["lose", "win"]
     //if the player dies or reaches level 80 they win or lose
     if (this.hp<1) {
-      endGame("lose!");
+      endGame(outCome[0]);
     }
     else if (this.level===79) {
-      endGame("win!");
+      endGame(outCome[1]);
     }
   }
 }
@@ -478,7 +481,7 @@ function P1 () {
 function keyPressed () {
   //pauses the game if escape is pressed and unpauses it if '~' is pressed
   if (keyCode === 27 && gamePaused === false) {
-    return true;
+    gamePaused = true;
   }
   else if (keyCode === 192){
     gamePaused = false;
@@ -528,7 +531,8 @@ function sEnemy () {
       this.fire();
       this.dead();
       this.damagePlayer();
-      this.damageMe();
+      this.damageMe(0);
+      this.damageMe(1);
     }
   },
   this.stats = function () {
@@ -638,7 +642,7 @@ function sEnemy () {
   },
   this.damagePlayer = function () {
     // if a bullet is touching the player they take damage depending on magicShield
-    if (p1.x+56 < this.bullets.x && p1.x+88 > this.bullets.x && p1.y+31 < this.bullets.y && p1.y+66 > this.bullets.y && this.bullets.hidden === false) {
+    if (hitBox(this.bullets.x, p1.x+56, p1.x+88, this.bullets.x, this.bullets.y, p1.y+31, p1.y+66, this.bullets.y) && this.bullets.hidden === false) {
       if (shield.active && (p1.mp - this.attack) > 0) {
         p1.mp-=this.attack;
       }
@@ -648,23 +652,17 @@ function sEnemy () {
       this.bullets.hidden = true;
     }
   },
-  this.damageMe = function () {
+  this.damageMe = function (num) {
     // if a bullet hits an enemy it deals damage and dissapears
-    if (this.x < p1.bullets[0].x && this.x > p1.bullets[0].x-30 && this.y < p1.bullets[0].y && this.y > p1.bullets[0].y-30 && this.spawn === true && p1.bullets[0].hidden === false) {
-      p1.bullets[0].hidden = true;
-      this.hp-=round(random(p1.attack, p1.attack+(p1.attack*.25)));
-    }
-    if (this.x < p1.bullets[1].x && this.x > p1.bullets[1].x-30 && this.y < p1.bullets[1].y && this.y > p1.bullets[1].y-30 && this.spawn === true && p1.bullets[0].hidden === false) {
-      p1.bullets[1].hidden = true;
+    if (hitBox(p1.bullets[num].x, this.x, this.x, p1.bullets[num].x-30, p1.bullets[num].y, this.y, this.y, p1.bullets[num].y-30) && this.spawn === true && p1.bullets[num].hidden === false) {
+      p1.bullets[num].hidden = true;
       this.hp-=round(random(p1.attack, p1.attack+(p1.attack*.25)));
     }
   },
   this.dead = function () {
-    //gets rid of dead enemies and gives the player exp
-    if (this.hp < 1) {
+    if (this.hp<1) {
       this.spawn = false;
-      p1.exp+=this.level*2+5;
-      numEnemies--;
+      p1.exp+= this.level*3;
     }
   }
 }
@@ -692,8 +690,11 @@ function bEnemy () {
       this.gEnemy();
       this.move();
       this.dead();
-      this.damagePlayer();
-      this.damageMe();
+      for (var i = 0; i<3; i++) {
+      this.damagePlayer(i);
+      }
+      this.damageMe(0);
+      this.damageMe(1);
     }
   },
   this.stats = function () {
@@ -758,92 +759,70 @@ function bEnemy () {
     if (z === 4 && this.spawn === true) {
       z=0;
     }
-    //sets bullet directionality and fires it
+    // fires bullet if conditions are met
     if (this.bullets[0].hidden === true && !keyPressed() && z === 0 && this.spawn === true) {
-      this.bullets[0].x = this.x+25;
-      this.bullets[0].y = this.y+25;
-      this.bullets[0].hidden = false;
-      this.bullets[0].angle = atan2(((p1.y+50)-this.bullets[0].y),((p1.x+75)-this.bullets[0].x));
+      this.spawnBullet(0);
     }
-    if (this.bullets[0].hidden === false && !keyPressed() && this.spawn === true && this.bullets[0].x - this.x+25 > 80 ||
-    this.bullets[0].x - this.x+25 < -80 || this.bullets[0].y - this.y+25 > 80 || this.bullets[0].y - this.y+25 < -80) {
-      this.bullets[1].x = this.x+25;
-      this.bullets[1].y = this.y+25;
-      this.bullets[1].hidden = false;
-      this.bullets[1].angle = atan2(((p1.y+50)-this.bullets[1].y),((p1.x+75)-this.bullets[1].x));
+    for (var i = 0; i<2; i++) {
+      if (this.callAdditionalBullets(i)) {
+        this.spawnBullet(i+1);
+      }
     }
-    if (this.bullets[1].hidden === false && !keyPressed() && this.spawn === true && this.bullets[1].x - this.x+25 > 80 ||
-    this.bullets[1].x - this.x+25 < -80 || this.bullets[1].y - this.y+25 > 80 || this.bullets[1].y - this.y+25 < -80) {
-      this.bullets[2].x = this.x+25;
-      this.bullets[2].y = this.y+25;
-      this.bullets[2].hidden = false;
-      this.bullets[2].angle = atan2(((p1.y+50)-this.bullets[1].y),((p1.x+75)-this.bullets[1].x));
+    for (var i = 0; i<2; i++) {
+      this.displayBullet(i);
+      this.bulletMaxDistance(i);
     }
-    this.displayBullet();
-    this.bulletMaxDistance();
   },
-  this.displayBullet = function () {
+  this.spawnBullet = function (num) {
+    // sets bullet directionality and fires it
+    this.bullets[num].x = this.x+25;
+    this.bullets[num].y = this.y+25;
+    this.bullets[num].hidden = false;
+    this.bullets[num].angle = atan2(((p1.y+50)-this.bullets[num].y),((p1.x+75)-this.bullets[num].x));
+  },
+  this.callAdditionalBullets = function (num) {
+    if (this.bullets[num].hidden === false && !keyPressed() && this.spawn === true && this.bullets[num].x - this.x+25 > 80 ||
+    this.bullets[num].x - this.x+25 < -80 || this.bullets[num].y - this.y+25 > 80 || this.bullets[num].y - this.y+25 < -80) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+  this.displayBullet = function (num) {
     //generates and moves bullet
-    if (this.bullets[0].hidden === false && !keyPressed()) {
+    if (this.bullets[num].hidden === false && !keyPressed()) {
       for (var i = 0; i<15; i++) {
-        this.bullets[0].x += cos(this.bullets[0].angle)/3;
-        this.bullets[0].y += sin(this.bullets[0].angle)/3;
+        this.bullets[num].x += cos(this.bullets[num].angle)/3;
+        this.bullets[num].y += sin(this.bullets[num].angle)/3;
         noStroke();
         fill(140, 0, 255);
-        ellipse(this.bullets[0].x, this.bullets[0].y, 6);
-      }
-    }
-    if (this.bullets[1].hidden === false && !keyPressed()) {
-      for (var i = 0; i<15; i++) {
-        this.bullets[1].x += cos(this.bullets[1].angle)/3;
-        this.bullets[1].y += sin(this.bullets[1].angle)/3;
-        noStroke();
-        fill(140, 0, 255);
-        ellipse(this.bullets[1].x, this.bullets[1].y, 6);
-      }
-    }
-    if (this.bullets[2].hidden === false && !keyPressed()) {
-      for (var i = 0; i<15; i++) {
-        this.bullets[2].x += cos(this.bullets[1].angle)/3;
-        this.bullets[2].y += sin(this.bullets[1].angle)/3;
-        noStroke();
-        fill(140, 0, 255);
-        ellipse(this.bullets[2].x, this.bullets[2].y, 6);
+        ellipse(this.bullets[num].x, this.bullets[num].y, 6);
       }
     }
   },
-  this.bulletMaxDistance = function () {
+  this.bulletMaxDistance = function (num) {
     // limit on how far bullet can go
-    if (this.bullets[0].x - this.x+25 > 300 || this.bullets[0].x - this.x+25 < -300 || this.bullets[0].y - this.y+25 > 300 || this.bullets[0].y - this.y+25 < -300) {
-      this.bullets[0].hidden = true;
-    }
-    if (this.bullets[1].x - this.x+25 > 300 || this.bullets[1].x - this.x+25 < -300 || this.bullets[1].y - this.y+25 > 300 || this.bullets[1].y - this.y+25 < -300) {
-      this.bullets[1].hidden = true;
-    }
-    if (this.bullets[2].x - this.x+25 > 300 || this.bullets[2].x - this.x+25 < -300 || this.bullets[2].y - this.y+25 > 300 || this.bullets[2].y - this.y+25 < -300) {
-      this.bullets[2].hidden = true;
+    if (this.bullets[num].x - this.x+25 > 300 || this.bullets[num].x - this.x+25 < -300 || this.bullets[num].y - this.y+25 > 300 || this.bullets[num].y - this.y+25 < -300) {
+      this.bullets[num].hidden = true;
     }
   },
   this.damagePlayer = function (num) {
     // damages player if any of the bullets hit him (taking magicShield into account)
-    if (p1.x+56 < this.bullets[0].x && p1.x+88 > this.bullets[0].x && p1.y+31 < this.bullets[0].y && p1.y+66 > this.bullets[0].y && this.bullets[0].hidden === false) {
+    if (hitBox(this.bullets[num].x, p1.x+56, p1.x+88, this.bullets[num].x, this.bullets[num].y, p1.y+31, p1.y+66, this.bullets[num].y) && this.bullets[num].hidden === false) {
       if (shield.active && (p1.mp - this.attack) > 0) {
         p1.mp-=this.attack;
       }
       else {
         p1.hp-=this.attack;
       }
-      this.bullets[0].hidden = true;
+      this.bullets[num].hidden = true;
     }
   },
-  this.damageMe = function () {
+  this.damageMe = function (num) {
     // damages the enemy if the player hits him
-    if (this.x < p1.bullets[0].x && this.x > p1.bullets[0].x-50 && this.y < p1.bullets[0].y && this.y > p1.bullets[0].y-50 && this.spawn === true && p1.bullets[0].hidden === false) {
-      p1.bullets[0].hidden = true;
-      this.hp-=round(random(p1.attack, p1.attack+(p1.attack*.25)));
-    }
-    if (this.x < p1.bullets[1].x && this.x > p1.bullets[1].x-50 && this.y < p1.bullets[1].y && this.y > p1.bullets[1].y-50 && this.spawn === true && p1.bullets[0].hidden === false) {
-      p1.bullets[1].hidden = true;
+    if (hitBox(p1.bullets[num].x, this.x, this.x, p1.bullets[num].x-50, p1.bullets[num].y, this.y, this.y, p1.bullets[num].y-50) && this.spawn === true && p1.bullets[num].hidden === false) {
+      p1.bullets[num].hidden = true;
       this.hp-=round(random(p1.attack, p1.attack+(p1.attack*.25)));
     }
   },
@@ -880,9 +859,11 @@ function shieldAbility() {
   if (shield.captured) {
     if (keyIsDown(49) && shield.active === false) {
       shield.active = true;
+      shield.lastChecked = millis();
     }
     else if (keyIsDown(49) && shield.active === true) {
       shield.active = false;
+      shield.lastChecked = millis();
     }
   }
   return shield.active;
@@ -891,7 +872,7 @@ function shieldAbility() {
 function superSpeedAbility() {
   // if you got the super speed item lets you activate it
   if (superSpeed.captured) {
-    if (keyIsDown(32)) {
+    if (keyIsDown(32) && p1.mp>2) {
       superSpeed.active = true;
       if (millis() - superSpeed.lastChecked > 100) {
         superSpeed.lastChecked = millis();
@@ -967,5 +948,14 @@ function startMenu() {
   //starts game
   if (mouseX>400 && mouseX<750 && mouseY>100 && mouseY<230 && mouseIsPressed) {
     start = true;
+  }
+}
+
+function hitBox(x11, x12, x21, x22, y11, y12, y21, y22) {
+  if (x11 > x12 && x21 > x22 && y11 > y12 && y21 > y22) {
+    return true;
+  }
+  else {
+    return false;
   }
 }

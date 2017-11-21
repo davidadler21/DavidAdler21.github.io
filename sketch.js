@@ -20,7 +20,7 @@ var start = false;
 var gamePaused = false;
 var BEnemy;
 var shield ={
-  captured: true,
+  captured: false,
   active: false,
   lastChecked: 0
 };

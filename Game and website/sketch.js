@@ -663,6 +663,7 @@ function sEnemy () {
     if (this.hp<1) {
       this.spawn = false;
       p1.exp+= this.level*3;
+      numEnemies--;
     }
   }
 }
